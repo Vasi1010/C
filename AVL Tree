@@ -1,0 +1,213 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+// 1. Node Structure
+// -----------------
+// Includes a 'height' field, which is crucial for an AVL tree.
+struct Node {
+    int key;
+    struct Node *left;
+    struct Node *right;
+    int height;
+};
+
+// --- Helper Functions ---
+
+// Get the height of a node (handles NULL nodes)
+int height(struct Node *N) {
+    if (N == NULL)
+        return 0;
+    return N->height;
+}
+
+// Get the maximum of two integers
+int max(int a, int b) {
+    return (a > b) ? a : b;
+}
+
+// Create a new node
+struct Node* newNode(int key) {
+    struct Node* node = (struct Node*)malloc(sizeof(struct Node));
+    node->key   = key;
+    node->left   = NULL;
+    node->right  = NULL;
+    node->height = 1; // New node is at height 1
+    return(node);
+}
+
+// 2. Tree Rotations
+// -----------------
+// These are the core operations to balance the tree.
+
+// Perform a right rotation on the subtree rooted with y
+struct Node *rightRotate(struct Node *y) {
+    struct Node *x = y->left;
+    struct Node *T2 = x->right;
+
+    // Perform rotation
+    x->right = y;
+    y->left = T2;
+
+    // Update heights
+    // Note: y's height must be updated before x's
+    y->height = max(height(y->left), height(y->right)) + 1;
+    x->height = max(height(x->left), height(x->right)) + 1;
+
+    // Return new root
+    return x;
+}
+
+// Perform a left rotation on the subtree rooted with x
+struct Node *leftRotate(struct Node *x) {
+    struct Node *y = x->right;
+    struct Node *T2 = y->left;
+
+    // Perform rotation
+    y->left = x;
+    x->right = T2;
+
+    // Update heights
+    // Note: x's height must be updated before y's
+    x->height = max(height(x->left), height(x->right)) + 1;
+    y->height = max(height(y->left), height(y->right)) + 1;
+
+    // Return new root
+    return y;
+}
+
+// 3. Get Balance Factor
+// -----------------------
+// Balance Factor = height(left subtree) - height(right subtree)
+int getBalance(struct Node *N) {
+    if (N == NULL)
+        return 0;
+    return height(N->left) - height(N->right);
+}
+
+// 4. Insert Function (with Balancing)
+// ---------------------------------
+struct Node* insert(struct Node* node, int key) {
+    
+    // --- Step 1: Standard BST Insertion ---
+    if (node == NULL)
+        return(newNode(key));
+
+    if (key < node->key)
+        node->left  = insert(node->left, key);
+    else if (key > node->key)
+        node->right = insert(node->right, key);
+    else // Duplicate keys are not allowed
+        return node;
+
+    // --- Step 2: Update Height of the Ancestor Node ---
+    node->height = 1 + max(height(node->left), height(node->right));
+
+    // --- Step 3: Get the Balance Factor ---
+    int balance = getBalance(node);
+
+    // --- Step 4: Rebalance if the node is unbalanced (4 cases) ---
+
+    // Case 1: Left Left (LL)
+    if (balance > 1 && key < node->left->key) {
+        printf("  (LL Rotation at %d)\n", node->key);
+        return rightRotate(node);
+    }
+
+    // Case 2: Right Right (RR)
+    if (balance < -1 && key > node->right->key) {
+        printf("  (RR Rotation at %d)\n", node->key);
+        return leftRotate(node);
+    }
+
+    // Case 3: Left Right (LR)
+    if (balance > 1 && key > node->left->key) {
+        printf("  (LR Rotation at %d)\n", node->key);
+        node->left =  leftRotate(node->left);
+        return rightRotate(node);
+    }
+
+    // Case 4: Right Left (RL)
+    if (balance < -1 && key < node->right->key) {
+        printf("  (RL Rotation at %d)\n", node->key);
+        node->right = rightRotate(node->right);
+        return leftRotate(node);
+    }
+
+    // Return the (unchanged) node pointer
+    return node;
+}
+
+// --- Utility Function to Print the Tree ---
+
+// Pre-order traversal (Root, Left, Right)
+void preOrder(struct Node *root) {
+    if(root != NULL) {
+        printf("%d ", root->key);
+        preOrder(root->left);
+        preOrder(root->right);
+    }
+}
+
+// Free the tree (post-order traversal)
+void freeTree(struct Node *root) {
+    if (root != NULL) {
+        freeTree(root->left);
+        freeTree(root->right);
+        free(root);
+    }
+}
+
+// 5. Main Driver Program
+// ----------------------
+int main() {
+    struct Node *root = NULL;
+
+    printf("Inserting 10...\n");
+    root = insert(root, 10);
+    printf("Inserting 20...\n");
+    root = insert(root, 20);
+    
+    // This insertion will cause an imbalance
+    printf("Inserting 30...\n");
+    root = insert(root, 30);
+    // Tree becomes:
+    //   10
+    //     \
+    //      20
+    //        \
+    //         30  (Balance factor of 10 is -2)
+    //
+    // A Left Rotation (RR case) is triggered at 10.
+    // New tree:
+    //      20
+    //     /  \
+    //    10   30
+
+    printf("\nPre-order traversal after rotations:\n");
+    preOrder(root); // Expected: 20 10 30
+    printf("\n\n");
+    
+    // Add more nodes
+    printf("Inserting 40...\n");
+    root = insert(root, 40);
+    printf("Inserting 50...\n");
+    root = insert(root, 50);
+    // This triggers another RR rotation at 30
+    
+    printf("\nPre-order traversal after more insertions:\n");
+    preOrder(root); // Expected: 20 10 40 30 50
+    printf("\n\n");
+
+    printf("Inserting 25...\n");
+    root = insert(root, 25);
+    // This triggers an RL rotation at 30
+
+    printf("\nFinal Pre-order traversal:\n");
+    preOrder(root); // Expected: 20 10 30 25 40 50
+    printf("\n");
+
+    // Clean up memory
+    freeTree(root);
+
+    return 0;
+}
